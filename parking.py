@@ -3,7 +3,7 @@
 # This program will perform a genetic learning algorithm using reinforcement learning.
 #
 import math
-
+import time
 import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
@@ -16,6 +16,7 @@ import scipy.special
 RANDOM_SEED = 0
 MAX_POPULATION_SIZE = 500
 MAX_GENERATIONS = 1200
+DIVERSIFY_RATE = 25
 
 # HYPERPARAMETERS
 # These are hyperparameters set by recommendation and project constraints
@@ -33,7 +34,7 @@ T_START = 0
 T_END = 10
 STEPS = 100
 STEP_DELTA = 0.1
-J_TOLERANCE = 0.01
+J_TOLERANCE = 0.1
 
 # FEASIBLE REGION
 # Regions the agents cannot touch or pass into
@@ -70,6 +71,16 @@ def create_next_generation(population, elite, labels, probs, random_generator):
     return children
 
 
+def diversify(population, labels, probs, random_generator):
+    # diversifies population based on the probability distribution
+    inv_probs = calc_probabilities(np.reciprocal(probs))
+    replacements = random_generator.choice(labels, POPULATION_SIZE // 3, p=inv_probs)
+    for replacement in replacements:
+        if replacement != POPULATION_SIZE - 1:
+            population[replacement] = random_generator.randint(0, MAX_GENE_VAL, 20)
+    return population
+
+
 def choose_parents(labels, probabilities, random_generator: np.random):
     # chooses 2 parents based on the fitness array
     # population:   POPULATION_SIZE x 20 array
@@ -92,7 +103,7 @@ def create_children(population, elite, parents, random_generator):
         p2 = population[parent_pair[1]]
 
         # c1 uses left p1 (v1) at cross over, c2 uses left of p2 (v2) at cross over
-        c1, c2 = cross_and_mutate(p1, p2, random_generator)
+        c1, c2 = cross_and_mutate_v2(p1, p2, random_generator)
         children.append(c1)
         children.append(c2)
 
@@ -105,7 +116,7 @@ def cross_and_mutate(p1, p2, random_generator):
     c1 = []
     c2 = []
     for v1, v2 in zip(p1, p2):
-        cross_over = random_generator.randint(1, GENE_SIZE-2)
+        cross_over = random_generator.randint(1, GENE_SIZE - 1)
         v1_gray = bin(gray_encode(v1))[2:]
         v2_gray = bin(gray_encode(v2))[2:]
 
@@ -117,6 +128,48 @@ def cross_and_mutate(p1, p2, random_generator):
         c1.append(gray_decode(c1_val))
         c2.append(gray_decode(c2_val))
 
+    return np.array(c1), np.array(c2)
+
+
+def cross_and_mutate_v2(p1, p2, random_generator):
+    # performs a crossover at a specific variable
+    # results in less variance per cross over
+    # c1 uses left p1 (v1) at cross over, c2 uses left of p2 (v2) at cross over
+    cross_over_v = 2
+    c1 = []
+    c2 = []
+    i = 0
+    for v1, v2 in zip(p1, p2):
+        v1_gray = bin(gray_encode(v1))[2:]
+        v2_gray = bin(gray_encode(v2))[2:]
+        if i == cross_over_v:
+            # crossover, mutate, and convert back to ints for conversion
+            cross_over = random_generator.randint(1, GENE_SIZE - 1)
+            c1_val = int(mutate(v1_gray[:cross_over] + v2_gray[cross_over:], random_generator), 2)
+            c2_val = int(mutate(v2_gray[:cross_over] + v1_gray[cross_over:], random_generator), 2)
+
+            # decode the gray encoding and then append the values
+            c1.append(gray_decode(c1_val))
+            c2.append(gray_decode(c2_val))
+        elif i < cross_over_v:
+            # mutate and convert back into ints for conversion
+            c1_val = int(mutate(v1_gray, random_generator), 2)
+            c2_val = int(mutate(v2_gray, random_generator), 2)
+
+            # decode gray and then append the values
+            c1.append(gray_decode(c1_val))
+            c2.append(gray_decode(c2_val))
+        else:
+            # mutate and convert back into ints for conversion
+            c1_val = int(mutate(v2_gray, random_generator), 2)
+            c2_val = int(mutate(v1_gray, random_generator), 2)
+
+            # decode gray and then append the values
+            c1.append(gray_decode(c1_val))
+            c2.append(gray_decode(c2_val))
+        i += 1
+
+    # decode the gray encoding and then append the values
     return np.array(c1), np.array(c2)
 
 
@@ -138,7 +191,7 @@ def mutate(binary_string, random_generator):
             new_binary_string += flip(bit)
         else:
             new_binary_string += bit
-    return binary_string
+    return new_binary_string
 
 
 def interpolate_individual(individual):
@@ -303,15 +356,20 @@ def calc_probabilities(fitness):
 
 def main(args):
     global MUTATION_RATE
+    start = time.time()
     random_generator = np.random
-    if len(args) > 1 and args[1] == '-s':
-        random_generator.seed(RANDOM_SEED)
+    if len(args) > 2 and args[1] == '-s':
+        if args[2] is None:
+            random_generator.seed(RANDOM_SEED)
+        else:
+            random_generator.seed(int(args[2]))
 
     population, labels = create_population(random_generator)
 
     generation = 0
     elite = None
     elite_score = -1
+    elite_generation = 0
     elite_j = 10000
     exit_condition = False
     while not exit_condition:
@@ -326,17 +384,23 @@ def main(args):
             elite = population[best_index]
             elite_score = fitness[best_index]
             elite_j = (1 / elite_score) - 1
-            print(elite)
-            # evaluate_best_individual(elite)
+            elite_generation = 0
+            MUTATION_RATE = MUTATION_RATE_DEFAULT
+        else:
+            elite_generation += 1
 
         print(f"Generation {generation:<4} : J = {elite_j}")
 
         # using softmax to create a probability distribution
-        probs = scipy.special.softmax(fitness)
+        probs = calc_probabilities(fitness)
         population = create_next_generation(population, elite, labels, probs, random_generator)
         exit_condition = (generation >= MAX_GENERATIONS) or (elite_j < J_TOLERANCE)
+        if elite_generation != 0 and elite_generation % DIVERSIFY_RATE == 0:
+            MUTATION_RATE = min(.1, MUTATION_RATE + .005)
         generation += 1
 
+    end = time.time()
+    print(str((end - start) / 60) + ' minutes')
     evaluate_best_individual(elite)
     return
 
