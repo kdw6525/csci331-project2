@@ -9,14 +9,12 @@ import scipy as sp
 import matplotlib.pyplot as plt
 import sys
 
-import scipy.special
-
 # GLOBAL PARAMETERS
 # Used for testing to keep results consistent
 RANDOM_SEED = 0
 MAX_POPULATION_SIZE = 500
 MAX_GENERATIONS = 1200
-DIVERSIFY_RATE = 25
+DIVERSIFY_RATE = 50
 
 # HYPERPARAMETERS
 # These are hyperparameters set by recommendation and project constraints
@@ -236,7 +234,7 @@ def individual_fitness(gamma_beta, current, end):
         # check if feasible spot and add infeasibility costs
         infeasibility += calc_infeasibility(current)
 
-    dist = scipy.spatial.distance.euclidean(current, end)
+    dist = sp.spatial.distance.euclidean(current, end)
     return dist + infeasibility
 
 
@@ -385,7 +383,7 @@ def main(args):
             elite_score = fitness[best_index]
             elite_j = (1 / elite_score) - 1
             elite_generation = 0
-            MUTATION_RATE = MUTATION_RATE_DEFAULT
+            # MUTATION_RATE = MUTATION_RATE_DEFAULT
         else:
             elite_generation += 1
 
@@ -396,7 +394,16 @@ def main(args):
         population = create_next_generation(population, elite, labels, probs, random_generator)
         exit_condition = (generation >= MAX_GENERATIONS) or (elite_j < J_TOLERANCE)
         if elite_generation != 0 and elite_generation % DIVERSIFY_RATE == 0:
-            MUTATION_RATE = min(.1, MUTATION_RATE + .005)
+            if elite_j < 0.5 and math.floor(elite_generation / DIVERSIFY_RATE) < 3:
+                MUTATION_RATE = MUTATION_RATE * 2
+            else:
+                print('BAD STARTING LOCATION, RESTARTING FROM NEW START')
+                population, labels = create_population(random_generator)
+                elite = None
+                elite_score = -1
+                elite_generation = 0
+                elite_j = 10000
+                MUTATION_RATE = MUTATION_RATE_DEFAULT
         generation += 1
 
     end = time.time()
