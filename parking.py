@@ -133,7 +133,7 @@ def cross_and_mutate_v2(p1, p2, random_generator):
     # performs a crossover at a specific variable
     # results in less variance per cross over
     # c1 uses left p1 (v1) at cross over, c2 uses left of p2 (v2) at cross over
-    cross_over_v = 2
+    cross_over_v = random_generator.randint(1, 19)
     c1 = []
     c2 = []
     i = 0
