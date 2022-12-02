@@ -248,12 +248,15 @@ def individual_history(gamma_beta, current):
     beta = gamma_beta[1]
 
     history = np.array([current])
+    control_data = []
     for g, b in zip(gamma, beta):
         current = calculate_step(current, g, b)
         # record current in history
         history = np.vstack((history, current))
+        control_data.append(g)
+        control_data.append(b)
 
-    return history
+    return history, control_data
 
 
 def calculate_fitness(population_steps):
@@ -289,8 +292,8 @@ def evaluate_best_individual(individual):
     t_new = np.linspace(T_START, T_END, STEPS)
     t_history = np.linspace(T_START, T_END, STEPS + 1)
 
-    history = individual_history([gamma_new, beta_new], np.copy(START))
-    np.savetxt('controls.dat', np.array([gamma_new, beta_new]), fmt='%.18f')
+    history, control_data = individual_history([gamma_new, beta_new], np.copy(START))
+    np.savetxt('controls.dat', np.array(control_data), fmt='%.18f')
     # fist column is x histories, second column is y histories
     x_history = history[:, 0]
     y_history = history[:, 1]
