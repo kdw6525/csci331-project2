@@ -15,7 +15,6 @@ import sys
 RANDOM_SEED = 0
 MAX_POPULATION_SIZE = 500
 MAX_GENERATIONS = 1200
-MAX_GENE_SIZE = 32
 DIVERSIFY_RATE = 50
 
 # HYPERPARAMETERS
@@ -412,9 +411,6 @@ def interpret_args(args):
                 print('ERROR: Max population size is 500')
                 exit(-1)
             GENE_SIZE = int(args[4])
-            if GENE_SIZE > MAX_GENE_SIZE:
-                print('ERROR: Max gene size is 32')
-                exit(-1)
             MUTATION_RATE = float(args[5])
             if MUTATION_RATE > 1 or MUTATION_RATE < 0:
                 print('ERROR: Mutation rate must be less than 1 and greater than or equal to 0')
