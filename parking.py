@@ -15,12 +15,14 @@ import sys
 RANDOM_SEED = 0
 MAX_POPULATION_SIZE = 500
 MAX_GENERATIONS = 1200
+MAX_GENE_SIZE = 32
 DIVERSIFY_RATE = 50
 
 # HYPERPARAMETERS
 # These are hyperparameters set by recommendation and project constraints
 POPULATION_SIZE = 201
 GENERATIONS = 1200
+PARAM_VECTOR_SIZE = 20
 GENE_SIZE = 7
 MAX_GENE_VAL = np.power(2, GENE_SIZE) - 1
 MUTATION_RATE_DEFAULT = 0.005
@@ -55,15 +57,15 @@ TARGET = np.array([0, 0, 0, 0])
 
 def create_population(random_generator):
     # generates a starting population
-    return random_generator.randint(0, MAX_GENE_VAL, [POPULATION_SIZE, 20]), np.arange(0, POPULATION_SIZE)
+    return random_generator.randint(0, MAX_GENE_VAL, [POPULATION_SIZE, PARAM_VECTOR_SIZE]), np.arange(0, POPULATION_SIZE)
 
 
 def create_next_generation(population, elite, labels, probs, random_generator):
     # create a new population based on the previous
-    # population:       POPULATION_SIZE x 20 array as the potential parents
+    # population:       POPULATION_SIZE x PARAM_VECTOR_SIZE array as the potential parents
     # probs:            POPULATION_SIZE x 1 array as the probability distribution
     # random_generator: a potentially seeded random generator
-    # returns:          POPULATION_SIZE x 20 array of the next generation
+    # returns:          POPULATION_SIZE x PARAM_VECTOR_SIZE array of the next generation
 
     parents = choose_parents(labels, probs, random_generator)
     children = create_children(population, elite, parents, random_generator)
@@ -77,28 +79,28 @@ def diversify(population, labels, probs, random_generator):
     replacements = random_generator.choice(labels, POPULATION_SIZE // 3, p=inv_probs)
     for replacement in replacements:
         if replacement != POPULATION_SIZE - 1:
-            population[replacement] = random_generator.randint(0, MAX_GENE_VAL, 20)
+            population[replacement] = random_generator.randint(0, MAX_GENE_VAL, PARAM_VECTOR_SIZE)
     return population
 
 
 def choose_parents(labels, probabilities, random_generator: np.random):
     # chooses 2 parents based on the fitness array
-    # population:   POPULATION_SIZE x 20 array
+    # population:   POPULATION_SIZE x PARAM_VECTOR_SIZE array
     # labels:       1 x POPULATION_SIZE array
     # fitness:      1 x POPULATION_SIZE array
-    # returns:      2 x 20 array
-    return random_generator.choice(labels, [POPULATION_SIZE // 2, 2], p=probabilities)
+    # returns:      2 x PARAM_VECTOR_SIZE array
+    return random_generator.choice(labels, [(POPULATION_SIZE // 2) - (1 - POPULATION_SIZE % 2), 2], p=probabilities)
 
 
 def create_children(population, elite, parents, random_generator):
     # creates the children of the next generation
-    # population:   POPULATION_SIZE x 20 array containing the real values of the parents
+    # population:   POPULATION_SIZE x PARAM_VECTOR_SIZE array containing the real values of the parents
     # parents:      POPULATION_SIZE // 2 x 2 array containing the indices of the parents in population
-    # returns:      POPULATION_SIZE x 20 array containing the new generation
+    # returns:      POPULATION_SIZE x PARAM_VECTOR_SIZE array containing the new generation
 
     children = [elite]
     for parent_pair in parents:
-        # both p's are 1 x 20 arrays
+        # both p's are 1 x PARAM_VECTOR_SIZE arrays
         p1 = population[parent_pair[0]]
         p2 = population[parent_pair[1]]
 
@@ -199,7 +201,7 @@ def interpolate_individual(individual):
     # interpolate
     convert_range = np.vectorize(convert_to_range)
 
-    t = range(0, 10)
+    t = range(0, PARAM_VECTOR_SIZE // 2)
     gamma = convert_range(individual[0::2], GAMMA_LB, GAMMA_UB - GAMMA_LB)
     beta = convert_range(individual[1::2], BETA_LB, BETA_UB - BETA_LB)
 
@@ -390,20 +392,39 @@ def interpret_args(args):
     global GENERATIONS
     global POPULATION_SIZE
     global GENE_SIZE
+    global PARAM_VECTOR_SIZE
 
-    if len(args) != 1:
-        GENERATIONS = int(args[1])
-        POPULATION_SIZE = int(args[2])
-        GENE_SIZE = int(args[3])
-        MUTATION_RATE = float(args[4])
-
-    return
+    seed = None
+    if len(args) > 1:
+        if len(args) == 2:
+            seed = int(args[1])
+        else:
+            GENERATIONS = int(args[1])
+            if GENERATIONS > MAX_GENERATIONS:
+                print('ERROR: Max number of generations is 1200')
+                exit(-1)
+            POPULATION_SIZE = int(args[2])
+            if POPULATION_SIZE > MAX_POPULATION_SIZE:
+                print('ERROR: Max population size is 500')
+                exit(-1)
+            GENE_SIZE = int(args[3])
+            if GENE_SIZE > MAX_GENE_SIZE:
+                print('ERROR: Max gene size is 32')
+                exit(-1)
+            MUTATION_RATE = float(args[4])
+            if MUTATION_RATE > 1 or MUTATION_RATE < 0:
+                print('ERROR: Mutation rate must be less than 1 and greater than or equal to 0')
+                exit(-1)
+            PARAM_VECTOR_SIZE = int(args[5]) * 2
+            if len(args) == 7:
+                seed = int(args[6])
+    return seed
 
 
 def main(args):
-    interpret_args(args)
-    start = time.time()
     random_generator = np.random
+    random_generator.seed(interpret_args(args))
+    start = time.time()
 
     population, labels = create_population(random_generator)
 
