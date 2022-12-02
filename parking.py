@@ -20,6 +20,7 @@ DIVERSIFY_RATE = 50
 # HYPERPARAMETERS
 # These are hyperparameters set by recommendation and project constraints
 POPULATION_SIZE = 201
+GENERATIONS = 1200
 GENE_SIZE = 7
 MAX_GENE_VAL = np.power(2, GENE_SIZE) - 1
 MUTATION_RATE_DEFAULT = 0.005
@@ -253,12 +254,6 @@ def individual_history(gamma_beta, current):
     return history
 
 
-def np_array_to_str():
-    # converts array to a one line array
-
-    return
-
-
 def calculate_fitness(population_steps):
     # gather all individual fitness scores and return the score
     # population_steps: POPULATION_SIZE x 2 x 100 array
@@ -278,7 +273,7 @@ def plot_history(history, t_new, label, x_label, y_label):
     plt.title(label)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
-    plt.savefig(label+'.png')
+    plt.savefig(label + '.png')
     plt.show()
     return
 
@@ -389,15 +384,26 @@ def calc_probabilities(fitness):
     return probs
 
 
-def main(args):
+def interpret_args(args):
+    # interprets the command line arguments
     global MUTATION_RATE
+    global GENERATIONS
+    global POPULATION_SIZE
+    global GENE_SIZE
+
+    if len(args) != 1:
+        GENERATIONS = int(args[1])
+        POPULATION_SIZE = int(args[2])
+        GENE_SIZE = int(args[3])
+        MUTATION_RATE = float(args[4])
+
+    return
+
+
+def main(args):
+    interpret_args(args)
     start = time.time()
     random_generator = np.random
-    if len(args) > 2 and args[1] == '-s':
-        if args[2] is None:
-            random_generator.seed(RANDOM_SEED)
-        else:
-            random_generator.seed(int(args[2]))
 
     population, labels = create_population(random_generator)
 
@@ -420,7 +426,6 @@ def main(args):
             elite_score = fitness[best_index]
             elite_j = (1 / elite_score) - 1
             elite_generation = 0
-            # MUTATION_RATE = MUTATION_RATE_DEFAULT
         else:
             elite_generation += 1
 
@@ -429,7 +434,7 @@ def main(args):
         # using softmax to create a probability distribution
         probs = calc_probabilities(fitness)
         population = create_next_generation(population, elite, labels, probs, random_generator)
-        exit_condition = (generation >= MAX_GENERATIONS) or (elite_j < J_TOLERANCE)
+        exit_condition = (generation >= GENERATIONS) or (elite_j < J_TOLERANCE)
         if elite_generation != 0 and elite_generation % DIVERSIFY_RATE == 0:
             print('BAD STARTING LOCATION, RESTARTING FROM NEW START')
             population, labels = create_population(random_generator)
@@ -437,7 +442,6 @@ def main(args):
             elite_score = -1
             elite_generation = 0
             elite_j = 10000
-            MUTATION_RATE = MUTATION_RATE_DEFAULT
         generation += 1
 
     end = time.time()
