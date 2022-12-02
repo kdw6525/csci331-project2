@@ -407,15 +407,15 @@ def interpret_args(args):
             if POPULATION_SIZE > MAX_POPULATION_SIZE:
                 print('ERROR: Max population size is 500')
                 exit(-1)
-            GENE_SIZE = int(args[3])
+            GENE_SIZE = int(args[4])
             if GENE_SIZE > MAX_GENE_SIZE:
                 print('ERROR: Max gene size is 32')
                 exit(-1)
-            MUTATION_RATE = float(args[4])
+            MUTATION_RATE = float(args[5])
             if MUTATION_RATE > 1 or MUTATION_RATE < 0:
                 print('ERROR: Mutation rate must be less than 1 and greater than or equal to 0')
                 exit(-1)
-            PARAM_VECTOR_SIZE = int(args[5]) * 2
+            PARAM_VECTOR_SIZE = int(args[3]) * 2
             if len(args) == 7:
                 seed = int(args[6])
     return seed
