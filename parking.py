@@ -57,7 +57,8 @@ TARGET = np.array([0, 0, 0, 0])
 
 def create_population(random_generator):
     # generates a starting population
-    return random_generator.randint(0, MAX_GENE_VAL, [POPULATION_SIZE, PARAM_VECTOR_SIZE]), np.arange(0, POPULATION_SIZE)
+    return random_generator.randint(0, MAX_GENE_VAL, [POPULATION_SIZE, PARAM_VECTOR_SIZE]), np.arange(0,
+                                                                                                      POPULATION_SIZE)
 
 
 def create_next_generation(population, elite, labels, probs, random_generator):
@@ -428,6 +429,7 @@ def main(args):
     random_generator = np.random
     random_generator.seed(interpret_args(args))
     start = time.time()
+    end = start
 
     population, labels = create_population(random_generator)
 
@@ -438,6 +440,16 @@ def main(args):
     elite_j = 10000
     exit_condition = False
     while not exit_condition:
+        # if we aren't learning enough or hit the max number of generations for a population, we restart
+        if (elite_generation != 0 and elite_generation % DIVERSIFY_RATE == 0) or (generation >= GENERATIONS):
+            print('BAD STARTING LOCATION, RESTARTING WITH NEW POPULATION')
+            population, labels = create_population(random_generator)
+            elite = None
+            elite_score = -1
+            elite_generation = 0
+            elite_j = 10000
+            generation = 0
+
         # 3D array, POPULATION_SIZE x 2 x 100
         # Takes each individual and calculates their beta and gamma values
         population_steps = np.apply_along_axis(interpolate_individual, 1, population)
@@ -455,20 +467,15 @@ def main(args):
 
         print(f"Generation {generation:<4} : J = {elite_j}")
 
-        # using softmax to create a probability distribution
+        # Time to create the next generation
+        # Using proportional probabilities based on each individual's fitness
         probs = calc_probabilities(fitness)
         population = create_next_generation(population, elite, labels, probs, random_generator)
-        exit_condition = (generation >= GENERATIONS) or (elite_j < J_TOLERANCE)
-        if elite_generation != 0 and elite_generation % DIVERSIFY_RATE == 0:
-            print('BAD STARTING LOCATION, RESTARTING FROM NEW START')
-            population, labels = create_population(random_generator)
-            elite = None
-            elite_score = -1
-            elite_generation = 0
-            elite_j = 10000
         generation += 1
 
-    end = time.time()
+        end = time.time()
+        exit_condition = (elite_j < J_TOLERANCE) or ((end - start) / 60 >= 7)
+
     print(str((end - start) / 60) + ' minutes')
     evaluate_best_individual(elite)
     return
