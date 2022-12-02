@@ -1,6 +1,7 @@
 # parking.py
 #
 # This program will perform a genetic learning algorithm using reinforcement learning.
+# Author: Kyle West
 #
 import math
 import time
@@ -252,6 +253,12 @@ def individual_history(gamma_beta, current):
     return history
 
 
+def np_array_to_str():
+    # converts array to a one line array
+
+    return
+
+
 def calculate_fitness(population_steps):
     # gather all individual fitness scores and return the score
     # population_steps: POPULATION_SIZE x 2 x 100 array
@@ -263,20 +270,35 @@ def calculate_fitness(population_steps):
     return fitness
 
 
+def plot_history(history, t_new, label, x_label, y_label):
+    # Function to plot a state or control variable
+    plt.figure(figsize=(10, 8))
+    plt.plot(t_new, history, 'b', label=label)
+    plt.axis('square')
+    plt.title(label)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.savefig(label+'.png')
+    plt.show()
+    return
+
+
 def evaluate_best_individual(individual):
     # perform analysis on the best fit individual
     # analysis ranges from exporting control variables to graphing various properties
-    # TODO add exporting and additional graphs. Perhaps save the graphs as pdfs
 
     gamma_new, beta_new = interpolate_individual(individual)
+    # steps + 1, to include the starting position
     t_new = np.linspace(T_START, T_END, STEPS)
+    t_history = np.linspace(T_START, T_END, STEPS + 1)
 
     history = individual_history([gamma_new, beta_new], np.copy(START))
+    np.savetxt('controls.dat', np.array([gamma_new, beta_new]), fmt='%.18f')
     # fist column is x histories, second column is y histories
-    x_new = history[:, 0]
-    y_new = history[:, 1]
-
-    print(history[-1])
+    x_history = history[:, 0]
+    y_history = history[:, 1]
+    a_history = history[:, 2]
+    v_history = history[:, 3]
 
     # obstacles
     x1_obs = np.linspace(-15, -4, 100)
@@ -296,7 +318,7 @@ def evaluate_best_individual(individual):
 
     # the path taken is related to x and y
     plt.figure(figsize=(10, 8))
-    plt.plot(x_new, y_new, 'b', label="Path")
+    plt.plot(x_history, y_history, 'b', label="Path")
     plt.plot(x1_obs, y1_obs, 'black', label="obstacle")
     plt.plot(x2_obs, y2_obs, 'black', label="obstacle")
     plt.plot(x3_obs, y3_obs, 'black', label="obstacle")
@@ -307,7 +329,22 @@ def evaluate_best_individual(individual):
     plt.title('Path')
     plt.xlabel('x')
     plt.ylabel('y')
+    plt.savefig('path.png')
     plt.show()
+
+    plot_history(x_history, t_history, "x-history", "Time (s)", "x (ft)")
+    plot_history(y_history, t_history, "y-history", "Time (s)", "y (ft)")
+    plot_history(a_history, t_history, "alpha-history", "Time (s)", "alpha (radians)")
+    plot_history(v_history, t_history, "v-history", "Time (s)", "v (ft/s)")
+    plot_history(gamma_new, t_new, "gamma-history", "Time (s)", "gamma (radians/s)")
+    plot_history(beta_new, t_new, "beta-history", "Time (s)", "beta (ft/s^2)")
+
+    final_state = history[-1]
+    print("Final state values:")
+    print("x_f = " + str(final_state[0]))
+    print("y_f = " + str(final_state[1]))
+    print("alpha_f = " + str(final_state[2]))
+    print("v_f = " + str(final_state[3]))
 
 
 def convert_to_range(val, lb, r):
@@ -394,16 +431,13 @@ def main(args):
         population = create_next_generation(population, elite, labels, probs, random_generator)
         exit_condition = (generation >= MAX_GENERATIONS) or (elite_j < J_TOLERANCE)
         if elite_generation != 0 and elite_generation % DIVERSIFY_RATE == 0:
-            if elite_j < 0.5 and math.floor(elite_generation / DIVERSIFY_RATE) < 3:
-                MUTATION_RATE = MUTATION_RATE * 2
-            else:
-                print('BAD STARTING LOCATION, RESTARTING FROM NEW START')
-                population, labels = create_population(random_generator)
-                elite = None
-                elite_score = -1
-                elite_generation = 0
-                elite_j = 10000
-                MUTATION_RATE = MUTATION_RATE_DEFAULT
+            print('BAD STARTING LOCATION, RESTARTING FROM NEW START')
+            population, labels = create_population(random_generator)
+            elite = None
+            elite_score = -1
+            elite_generation = 0
+            elite_j = 10000
+            MUTATION_RATE = MUTATION_RATE_DEFAULT
         generation += 1
 
     end = time.time()
